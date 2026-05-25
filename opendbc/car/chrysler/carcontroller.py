@@ -80,6 +80,18 @@ class CarController(CarControllerBase, MadsCarController, CarControllerExt, Inte
         self.last_lkas_falling_edge = self.frame
       self.lkas_control_bit_prev = lkas_control_bit
 
+      # ── FACTORY APA PASSTHROUGH ────────────────────────────────────────────
+      # When LKAS_STATE == 2 in EPS_2 (CAN 544), factory Auto Park Assist has
+      # taken control of steering. We must zero torque and clear the LKAS control
+      # bit or the EPS will reject APA and report "AUTO PARK NOT AVAILABLE".
+      autopark_active = getattr(CS, 'autopark_active', False)
+      if autopark_active:
+        if lkas_control_bit:
+          self.last_lkas_falling_edge = self.frame  # clean falling edge on handoff
+        lkas_control_bit = False
+        lkas_active = False
+      # ── END APA PASSTHROUGH ───────────────────────────────────────────────
+
       # steer torque
       new_torque = int(round(CC.actuators.torque * self.params.STEER_MAX))
       apply_torque = apply_meas_steer_torque_limits(new_torque, self.apply_torque_last, CS.out.steeringTorqueEps, self.params)
